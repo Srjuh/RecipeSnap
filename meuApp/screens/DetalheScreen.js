@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { isFavorito, toggleFavorito } from '../utils/favoritos';
+import { notificarFavorito } from '../utils/notificacoes';
 
 const API_URL = 'https://www.themealdb.com/api/json/v1/1';
 
@@ -21,7 +23,9 @@ export default function DetalheScreen({ route, navigation }) {
   const [receita, setReceita] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const [abaAtiva, setAbaAtiva] = useState('ingredientes'); // 'ingredientes' | 'preparo'
+  const [abaAtiva, setAbaAtiva] = useState('ingredientes');
+  const [favorito, setFavorito] = useState(false);
+  const [salvandoFav, setSalvandoFav] = useState(false);
 
   useEffect(() => {
     buscarDetalhe();
@@ -34,7 +38,10 @@ export default function DetalheScreen({ route, navigation }) {
       const response = await fetch(`${API_URL}/lookup.php?i=${idMeal}`);
       const data = await response.json();
       if (data.meals && data.meals.length > 0) {
-        setReceita(data.meals[0]);
+        const meal = data.meals[0];
+        setReceita(meal);
+        const fav = await isFavorito(meal.idMeal);
+        setFavorito(fav);
       } else {
         setErro('Receita não encontrada.');
       }
@@ -42,6 +49,18 @@ export default function DetalheScreen({ route, navigation }) {
       setErro('Erro ao carregar receita. Verifique sua conexão.');
     } finally {
       setCarregando(false);
+    }
+  };
+
+  const handleToggleFavorito = async () => {
+    if (!receita || salvandoFav) return;
+    setSalvandoFav(true);
+    try {
+      const adicionou = await toggleFavorito(receita);
+      setFavorito(adicionou);
+      if (adicionou) await notificarFavorito(receita.strMeal);
+    } finally {
+      setSalvandoFav(false);
     }
   };
 
@@ -61,10 +80,9 @@ export default function DetalheScreen({ route, navigation }) {
     return lista;
   };
 
-  // Divide o modo de preparo em passos (por número ou por parágrafo)
+  // Divide o modo de preparo em passos
   const extrairPassos = (instrucoes) => {
     if (!instrucoes) return [];
-    // Tenta separar por padrão "1. 2. 3." ou por linhas
     const porNumero = instrucoes.split(/\r?\n(?=\d+\.)/);
     if (porNumero.length > 2) {
       return porNumero.map((p) => p.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
@@ -104,14 +122,13 @@ export default function DetalheScreen({ route, navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView showsVerticalScrollIndicator={false} bounces>
-        {/* Imagem hero + botão voltar sobreposto */}
+        {/* Imagem hero + botão voltar + botão favoritar */}
         <View style={styles.heroWrapper}>
           <Image
             source={{ uri: receita.strMealThumb }}
             style={styles.heroImagem}
             resizeMode="cover"
           />
-          {/* Gradiente simulado com View */}
           <View style={styles.heroGradiente} />
 
           <TouchableOpacity
@@ -120,6 +137,20 @@ export default function DetalheScreen({ route, navigation }) {
             activeOpacity={0.8}
           >
             <Text style={styles.btnVoltarHeroTexto}>←</Text>
+          </TouchableOpacity>
+
+          {/* Botão favoritar */}
+          <TouchableOpacity
+            style={[styles.btnFavoritoHero, favorito && styles.btnFavoritoAtivo]}
+            onPress={handleToggleFavorito}
+            activeOpacity={0.8}
+            disabled={salvandoFav}
+          >
+            {salvandoFav ? (
+              <ActivityIndicator size="small" color={favorito ? '#FFFFFF' : '#FF6B35'} />
+            ) : (
+              <Text style={styles.btnFavoritoIcone}>{favorito ? '❤️' : '🤍'}</Text>
+            )}
           </TouchableOpacity>
 
           {/* Badges sobre a imagem */}
@@ -325,6 +356,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1A1A1A',
     fontWeight: '700',
+  },
+  btnFavoritoHero: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  btnFavoritoAtivo: {
+    backgroundColor: '#FF6B35',
+  },
+  btnFavoritoIcone: {
+    fontSize: 20,
   },
   heroBadges: {
     position: 'absolute',

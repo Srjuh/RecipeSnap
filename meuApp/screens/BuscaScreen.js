@@ -158,7 +158,7 @@ const buscarReceitas = useCallback(async () => {
             <Text style={styles.headerTitulo}>O que temos hoje? 🍳</Text>
             <Text style={styles.headerSub}>Informe os ingredientes disponíveis</Text>
           </View>
-          <TouchableOpacity style={styles.perfilBtn} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.perfilBtn} activeOpacity={0.7} onPress={() => navigation.navigate('Perfil')}>
             <Text style={styles.perfilIcone}>👤</Text>
           </TouchableOpacity>
         </View>

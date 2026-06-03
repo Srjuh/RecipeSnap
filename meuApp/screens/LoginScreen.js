@@ -52,7 +52,7 @@ const handleLogin = () => {
   setCarregando(true);
   setTimeout(() => {
     setCarregando(false);
-    navigation.replace('Busca'); // 👈 troca o comentário por isso
+    navigation.replace('Main');
   }, 1200);
 };
 
